@@ -1,12 +1,16 @@
-<!-- last_verified: 2026-05-01 -->
-# Vibe Coding Starter Kit
+<!-- last_verified: 2026-06-23 -->
+# AI Moodboard Generator
 
-Stop wiring boilerplate and start building. This open-source starter kit gives vibe coders and AI coding agents a production-ready foundation — a full-stack TypeScript + Python template with a pre-built dashboard UI, file upload system, and **[Backblaze B2](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-oss-start)** cloud storage already integrated. Save thousands of tokens on setup prompts, skip the "build me a dashboard from scratch" loop, and go straight to building your app's unique features.
+Type a prompt, pick or create a named **moodboard**, and generate an image that gets pinned to that board. Image generation runs through **Genblaze (OpenAI `gpt-image-1`)** and every pin is persisted to **[Backblaze B2](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-oss-start)**. Clone it, add your credentials, and run it.
+
+This is a finished B2 sample app, not a template. It's a good B2 demo because the storage economics are baked into the workflow: every pin is an image written to B2, a popular board is the same objects read back over and over, and rendering can switch between app-mediated **presigned URLs** (private bucket) and **durable public URLs** (the egress/CDN showcase) by setting a single env var. Boards are scoped to `boards/<slug>/` prefixes on B2, so the bucket layout mirrors the product. Pins also carry **fork/remix lineage** (a forked pin records its `parent`) and **provenance** (a sha256 that matches the stored bytes).
 
 **What you get out of the box:**
-- Full-stack dashboard UI (Next.js 16 + React 19 + Tailwind v4 + shadcn/ui)
-- File upload with drag-and-drop, progress tracking, and metadata extraction
-- File browser with preview, download, and delete
+- Text-to-image generation via Genblaze (OpenAI `gpt-image-1`), with selectable render quality
+- Named moodboards, each scoped to its own `boards/<slug>/` prefix on B2
+- Fork / remix with parent lineage and a fork badge on derived pins
+- Provenance — a sha256 sidecar that matches the exact bytes stored in B2
+- Two rendering modes — app-mediated presigned URLs for a private bucket, or durable public URLs when `B2_PUBLIC_URL_BASE` is set
 - FastAPI backend with strict layered architecture and structural tests
 - Agent-optimized docs — your AI coding agent can read the repo and start contributing immediately
 
@@ -30,7 +34,7 @@ Stop wiring boilerplate and start building. This open-source starter kit gives v
 
 ## Agent-First Architecture
 
-This repo is optimized for coding agents. Use the template, point your agent at it, and start building.
+This repo is optimized for coding agents.
 
 The structure follows the principle that **repository knowledge is the system of record**. Anything an agent can't access in-context doesn't exist — so everything it needs to reason about the codebase is versioned, co-located, and discoverable from the repo itself.
 
@@ -63,7 +67,7 @@ docs/
 | DRY documentation | Each fact lives in one place; no redundant files to drift |
 | Strict layered architecture | `types -> config -> repo -> service -> runtime`, enforced by tests |
 | Prefer boring, composable libraries | stdlib logging over frameworks, Pydantic over ad-hoc validation |
-| Contain external SDKs | `boto3` only in `repo/` layer — verified by structural test |
+| Contain external SDKs | `boto3` and the Genblaze SDK only in `repo/` — verified by structural test |
 | Keep files agent-sized | 300-line limit per file, enforced by test |
 | Docs updated with code | Same-PR requirement prevents documentation rot |
 | Structured observability | JSON logging, `/metrics` endpoint, request tracing |
@@ -72,31 +76,14 @@ This approach draws from [OpenAI's experience building with Codex](https://opena
 
 ## Quick Start
 
-You need: Node.js >= 20, pnpm >= 9, Python >= 3.11, and a free **[Backblaze B2 account](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-oss-start)**.
+You need: Node.js >= 20, pnpm >= 9, Python >= 3.11, an [OpenAI API key](https://platform.openai.com/api-keys) (for image generation), and a free **[Backblaze B2 account](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-oss-start)**.
 
-### Start a new project
-
-**Option 1: GitHub Template (recommended)**
-
-Click the green **"Use this template"** button at the top of this repo, name your project, then:
+### Clone the sample
 
 ```bash
-git clone https://github.com/yourorg/my-cool-app.git
-cd my-cool-app
+git clone https://github.com/backblaze-b2-samples/ai-moodboard-generator.git
+cd ai-moodboard-generator
 ```
-
-**Option 2: Clone and reinitialize**
-
-```bash
-git clone https://github.com/backblaze-b2-samples/vibe-coding-starter-kit.git my-cool-app
-cd my-cool-app
-rm -rf .git
-git init
-git add .
-git commit -m "Initial commit from vibe-coding-starter-kit"
-```
-
-Either way you get a clean project with no upstream history — ready to push to your own repo and point your agent at it.
 
 ### Setup
 
@@ -115,7 +102,7 @@ pip install -r requirements.txt
 cd ../..
 ```
 
-**3. Add your B2 credentials**
+**3. Add your credentials**
 
 Set up your local `.env`:
 
@@ -125,12 +112,18 @@ cp .env.example .env
 
 Open `.env` in your editor and keep it visible. Then head to the [Backblaze B2 dashboard](https://secure.backblaze.com/b2_buckets.htm?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-oss-start) and:
 
-1. **Create a bucket.** B2 will show two values — paste each into `.env`:
+1. **Create a bucket.** Paste its name into `.env`:
    - **Bucket Unique Name** → `B2_BUCKET_NAME`
-   - **Endpoint** → `B2_ENDPOINT`
+   - Set `B2_REGION` to your bucket's region (e.g. `us-west-004`). The S3 endpoint is **derived** from it as `https://s3.<B2_REGION>.backblazeb2.com` — you set the region, not a full URL.
 2. **Create an application key** with `Read and Write` permission. B2 will show two values — paste each into `.env`:
-   - **keyID** → `B2_KEY_ID`
+   - **keyID** → `B2_APPLICATION_KEY_ID`
    - **applicationKey** → `B2_APPLICATION_KEY` *(only shown once — paste it now)*
+
+Then add your image-generation key and (optionally) tune the output:
+
+- `OPENAI_API_KEY` — required; the OpenAI key Genblaze uses to drive `gpt-image-1`.
+- `MOODBOARD_IMAGE_QUALITY` — optional; `low` | `medium` | `high` | `auto` (default `medium`).
+- `B2_PUBLIC_URL_BASE` — optional. Leave empty for a private bucket and pins render via short-lived presigned URLs. Set it (e.g. `https://<bucket>.s3.<region>.backblazeb2.com` or a CDN host) to render pins as durable public URLs — the B2 egress/CDN showcase.
 
 > Want a walkthrough? See the docs for [creating a bucket](https://www.backblaze.com/docs/cloud-storage-create-and-manage-buckets) and [creating app keys](https://www.backblaze.com/docs/cloud-storage-create-and-manage-app-keys).
 
@@ -140,26 +133,21 @@ Open `.env` in your editor and keep it visible. Then head to the [Backblaze B2 d
 pnpm dev
 ```
 
-That's it. Frontend at `localhost:3000`, API at `localhost:8000`. Upload a file and see it working.
+That's it. Frontend at `localhost:3000`, API at `localhost:8000`. Open **Generate**, type a prompt, create a board, and watch the generated image get pinned to it — the image and its provenance sidecar land under `boards/<slug>/` in your B2 bucket.
 
 `pnpm dev` runs `pnpm doctor` first — a preflight check that catches the common setup gotchas (wrong Node/Python version, missing venv, missing or placeholder `.env`, ports already taken) and tells you exactly how to fix each one. Run it standalone any time with `pnpm doctor`.
 
-## Building Your App
+## How it's organized
 
-When you adapt this kit for a new app, keep the shared scaffolding and only swap out what's app-specific:
-
-- **Keep** the UI kit (`apps/web/src/components/ui/` + design tokens in `globals.css` + `/design`).
-- **Keep** the File Explorer (`/files`) and Upload (`/upload`) pages and their sidebar nav entries — they're the reusable B2-backed surface.
-- **Adapt** the Dashboard (`/`) to your use case — replace the default stats, chart, and recent uploads with metrics that reflect what your app actually does.
-- **Rebrand** by editing a single file: `apps/web/src/lib/app-config.ts` holds the app name and description (`APP_NAME`, `APP_DESCRIPTION`). Changing them there updates the page title, sidebar, and breadcrumb everywhere — no other files to touch.
-
-Full contract and rationale: [AGENTS.md §2 — Building on This Starter Kit](AGENTS.md#2-building-on-this-starter-kit).
+Start with **[AGENTS.md](AGENTS.md)** — it's the ~100-line map of the repository layout, architectural invariants, commands, and conventions. **[ARCHITECTURE.md](ARCHITECTURE.md)** covers the system layout, the `types -> config -> repo -> service -> runtime` layering, and the data flows (generate → persist to B2 → pin). The generate-and-pin path lives in `services/api/app/service/generate.py`; all B2 and Genblaze access is contained in `services/api/app/repo/`.
 
 ## Core Features
 
-- [File Upload](docs/features/file-upload.md) — drag-and-drop upload with real-time progress
-- [File Browser](docs/features/file-browser.md) — list, preview, download, delete files
-- [Dashboard](docs/features/dashboard.md) — stats cards, upload chart, recent uploads
+Feature docs live under [`docs/features/`](docs/features/):
+
+- [Dashboard](docs/features/dashboard.md) — stats cards, B2 write-activity chart, recent pins
+- [File Browser](docs/features/file-browser.md) — list, preview, download, delete objects in the bucket
+- [File Upload](docs/features/file-upload.md) — direct upload to B2 with progress and metadata
 - [Metadata Extraction](docs/features/metadata-extraction.md) — image dimensions, EXIF, PDF info, checksums
 - [Design System](docs/design-system.md) — tokens, primitives, AI elements, the blaze generating loader, and inline `ErrorState` / `EmptyState` patterns. Live preview at `/design`.
 - Inline error handling — fetch failures surface *what's wrong* (API offline, 401, 5xx) and offer a Retry, instead of silently rendering empty state.
@@ -168,13 +156,14 @@ Full contract and rationale: [AGENTS.md §2 — Building on This Starter Kit](AG
 - Structural tests — verify layering rules, import boundaries, SDK containment, file size limits
 - Structured JSON logging — every request traced with `request_id` and timing
 - `/health` endpoint — B2 connectivity check
-- `/metrics` endpoint — Prometheus-format counters (request count, latency, uploads)
+- `/metrics` endpoint — Prometheus-format counters (request count, latency, generations)
 
 ## Tech Stack
 
 - TypeScript, Next.js 16, React 19, Tailwind v4, shadcn/ui, Recharts
 - TanStack Query — caching, dedup, retry, stale-while-revalidate for every fetch
 - Python 3.11+, FastAPI, boto3, Pydantic v2, Pillow, PyPDF2
+- Genblaze (`genblaze-core` + `genblaze-openai`) driving the OpenAI `gpt-image-1` image model
 - Backblaze B2 (S3-compatible object storage)
 - pnpm workspaces (monorepo)
 
@@ -190,7 +179,7 @@ Full contract and rationale: [AGENTS.md §2 — Building on This Starter Kit](AG
 | `pnpm lint:api` | Lint backend (ruff) |
 | `pnpm test:api` | Run backend tests |
 | `pnpm check:structure` | Verify layering rules |
-| `pnpm test:e2e` | Playwright e2e tests (run `pnpm --filter @vibe-coding-starter-kit/web exec playwright install chromium` once first) |
+| `pnpm test:e2e` | Playwright e2e tests (run `pnpm --filter @ai-moodboard-generator/web exec playwright install chromium` once first) |
 
 ## Documentation Map
 
@@ -198,7 +187,7 @@ Full contract and rationale: [AGENTS.md §2 — Building on This Starter Kit](AG
 |-----|---------|
 | [AGENTS.md](AGENTS.md) | Agent table of contents — start here |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | System layout, layering, data flows |
-| [docs/features/](docs/features/) | Feature docs (upload, browser, dashboard, metadata) |
+| [docs/features/](docs/features/) | Feature docs (dashboard, file browser, upload, metadata) |
 | [docs/design-system.md](docs/design-system.md) | Design tokens, primitives, AI elements, loader, error/empty states |
 | [docs/app-workflows.md](docs/app-workflows.md) | User journeys |
 | [docs/dev-workflows.md](docs/dev-workflows.md) | Engineering workflows and testing |
