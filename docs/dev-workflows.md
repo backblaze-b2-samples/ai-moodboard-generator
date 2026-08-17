@@ -1,7 +1,13 @@
-<!-- last_verified: 2026-05-21 -->
+<!-- last_verified: 2026-08-17 -->
 # Dev Workflows
 
 Engineering workflows for this repo.
+
+## Prerequisites
+
+- Node.js 20.19.0 or newer
+- pnpm 9 or newer
+- Python 3.11 or newer
 
 ## New Feature
 
