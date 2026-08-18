@@ -44,13 +44,13 @@ jobs:
         if: ${{ hashFiles('apps/web/package.json') != '' }}
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "20.19"
 
       - name: Enable pnpm
         if: ${{ hashFiles('apps/web/package.json') != '' }}
         run: |
           corepack enable
-          corepack prepare pnpm@9 --activate
+          corepack prepare pnpm@10.24.0 --activate
 
       - name: Install frontend dependencies
         if: ${{ hashFiles('apps/web/package.json') != '' }}
@@ -58,4 +58,4 @@ jobs:
 
       - name: Typecheck frontend
         if: ${{ hashFiles('apps/web/package.json') != '' }}
-        run: pnpm --filter @ai-moodboard-generator/web typecheck
+        run: pnpm typecheck

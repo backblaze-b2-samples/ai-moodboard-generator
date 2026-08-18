@@ -1,6 +1,7 @@
 {
   "name": "ai-moodboard-generator",
   "private": true,
+  "packageManager": "pnpm@10.24.0",
   "scripts": {
     "doctor": "node scripts/doctor.mjs",
     "predev": "node scripts/doctor.mjs",
@@ -19,7 +20,7 @@
     "concurrently": "^9.1.0"
   },
   "engines": {
-    "node": ">=20",
-    "pnpm": ">=9"
+    "node": ">=20.19.0",
+    "pnpm": ">=10.24.0"
   }
 }

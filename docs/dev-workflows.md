@@ -1,7 +1,13 @@
-<!-- last_verified: 2026-05-21 -->
+<!-- last_verified: 2026-08-17 -->
 # Dev Workflows
 
 Engineering workflows for this repo.
+
+## Prerequisites
+
+- Node.js 20.19.0 or newer
+- pnpm 10.24.0 or newer
+- Python 3.11 or newer
 
 ## New Feature
 
@@ -40,6 +46,7 @@ Engineering workflows for this repo.
 - [ ] Run full lint + test suite before submitting
 - [ ] Docs updated in the same PR as code changes
 - [ ] Only change files relevant to the task — no drive-by improvements
+- [ ] GitHub CI uses `pnpm@10.24.0` and installs frontend dependencies with `pnpm install --frozen-lockfile` from the workspace root
 
 ## Testing
 
